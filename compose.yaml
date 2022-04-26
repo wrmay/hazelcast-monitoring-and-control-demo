@@ -1,0 +1,15 @@
+services:
+  hz:
+    image: hazelcast/hazelcast:5.1.1
+    networks:
+      - hznet
+
+  mc:
+    image: hazelcast/management-center:5.1 
+    ports:
+      - "8080:8080"
+    networks:
+      - hznet
+
+networks:
+  hznet: 
