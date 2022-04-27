@@ -1,4 +1,9 @@
 services:
+  hzfirst:
+    image: hazelcast/hazelcast:5.1.1
+    networks:
+      - hznet
+
   hz:
     image: hazelcast/hazelcast:5.1.1
     networks:
@@ -10,6 +15,24 @@ services:
       - "8080:8080"
     networks:
       - hznet
+
+  # cli:
+  #   image: hazelcast/hazelcast:5.1.1
+  #   command: hz-cli 
+  #   networks:
+  #     - hznet
+
+  refdata_loader:
+    image: openjdk:11
+    command: java -jar /project/refdata-loader/target/refdata-loader-1.0-SNAPSHOT.jar
+    environment:
+      HZ_SERVERS: hz
+      HZ_CLUSTER_NAME: dev 
+    volumes:
+      - ".:/project"
+    networks:
+      - hznet
+
 
 networks:
   hznet: 
