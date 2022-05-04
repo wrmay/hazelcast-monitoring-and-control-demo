@@ -1,11 +1,11 @@
 services:
-  hzfirst:
-    image: hazelcast/hazelcast:5.1.1
-    networks:
-      - hznet
 
   hz:
     image: hazelcast/hazelcast:5.1.1
+    environment:
+      JAVA_OPTS: -Dhazelcast.config=/project/hazelcast.yaml
+    volumes:
+      - ".:/project"
     networks:
       - hznet
 
@@ -28,11 +28,32 @@ services:
     environment:
       HZ_SERVERS: hz
       HZ_CLUSTER_NAME: dev 
+      MACHINE_COUNT: 1000
     volumes:
       - ".:/project"
     networks:
       - hznet
 
+  event_generator:
+    image: openjdk:11
+    command: java -jar /project/event-generator/target/event-generator-1.0-SNAPSHOT.jar
+    environment:
+      HZ_SERVERS: hz
+      HZ_CLUSTER_NAME: dev 
+      MACHINE_COUNT: 1000
+      HOT_MACHINE_COUNT: 20
+    volumes:
+      - ".:/project"
+    networks:
+      - hznet
+  
+  cli:
+    image: hazelcast/hazelcast:5.1.1
+    command: echo DONE
+    volumes:
+      - ".:/project"
+    networks:
+      - hznet
 
 networks:
   hznet: 

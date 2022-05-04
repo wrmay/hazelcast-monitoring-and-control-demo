@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>wrmay.net.jetdemo</groupId>
+    <groupId>net.wrmay.jetdemo</groupId>
     <artifactId>refdata-loader</artifactId>
     <version>1.0-SNAPSHOT</version>
 
@@ -18,6 +18,11 @@
             <groupId>com.hazelcast</groupId>
             <artifactId>hazelcast</artifactId>
             <version>5.1.1</version>
+        </dependency>
+        <dependency>
+            <groupId>net.wrmay.jetdemo</groupId>
+            <artifactId>common</artifactId>
+            <version>1.0-SNAPSHOT</version>
         </dependency>
     </dependencies>
 
