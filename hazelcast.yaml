@@ -1,6 +1,6 @@
 hazelcast:
   map:
-    machine_status:
+    machine_events:
       event-journal: 
         enabled: true
         capacity: 3600000

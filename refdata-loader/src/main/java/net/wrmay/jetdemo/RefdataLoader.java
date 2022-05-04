@@ -29,8 +29,6 @@ public class RefdataLoader {
 
     private static int machineCount;
 
-    private static int BATCH_SIZE = 1000;
-
     private static final String CREATE_MAPPING_SQL = "CREATE OR REPLACE MAPPING \"" + Names.PROFILE_MAP_NAME + "\" (" +
             "\"criticalTemp\" INTEGER EXTERNAL NAME \"this.criticalTemp\"," +
             "\"manufacturer\" VARCHAR EXTERNAL NAME \"this.manufacturer\"," +
@@ -99,6 +97,7 @@ public class RefdataLoader {
             for(int i=0; i < toLoad; ++i){
                 MachineProfile mp = MachineProfile.fake();
                 batch.put(mp.getSerialNum(), mp);
+                int BATCH_SIZE = 1000;
                 if (batch.size() == BATCH_SIZE){
                     machineProfileMap.putAll(batch);
                     batch.clear();
