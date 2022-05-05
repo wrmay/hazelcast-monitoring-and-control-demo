@@ -15,7 +15,9 @@ app.layout = html.Div(style={"display" : "flex", "justify-content": "center", "a
         dcc.Input(id='sn_input', type='text', placeholder='serial number', debounce=True)
     ]),
 
-    html.Span(id="temperature", children="155.9 degrees"
+    html.Div('warning temp: 999.9 / critical temp: 999.99', style={"color":"gray", "padding": "20px"}, id="limits"),
+
+    html.Span(id="temperature", children="999.9 degrees"
     , style={  "color" : "red", "font-size": "30px", "max-width" : "300px", "padding" : "20px"}),
 
     dcc.Interval(id="interval", interval=2000)
@@ -25,12 +27,15 @@ app.layout = html.Div(style={"display" : "flex", "justify-content": "center", "a
 @app.callback(
     Output(component_id="temperature", component_property="children"),
     Output(component_id="temperature", component_property="style"),
+    Output(component_id="limits", component_property="children"),
     Input(component_id="interval", component_property="n_intervals"),
     Input(component_id="sn_input", component_property="value")
 )
 def update_temp(n_ticks, sn):
     new_color = "gray"
     new_temp = "0.0"
+    warn_limit = "0.0"
+    critical_limit = "0.0"
 
     if sn is not None:
         status_msg = status_map.get(sn)
@@ -38,6 +43,8 @@ def update_temp(n_ticks, sn):
             words = status_msg.split(sep=",")
             new_temp = words[0]
             if (len(words) >= 4):
+                warn_limit = words[1]
+                critical_limit = words[2]
                 new_color = words[3]
 
     if new_color == 'orange':
@@ -46,7 +53,7 @@ def update_temp(n_ticks, sn):
     if new_color == 'red':
         new_temp = new_temp + " !!"
 
-    return f'{new_temp}', {  "color" : new_color, "font-size": "30px", "max-width" : "300px", "padding" : "20px"}
+    return f'{new_temp}', {  "color" : new_color, "font-size": "30px", "max-width" : "300px", "padding" : "20px"}, f'warning temp: {warn_limit}  / critical temp: {critical_limit}'
 
 
 client = hazelcast.HazelcastClient( cluster_name="dev", cluster_members=["hz"])
