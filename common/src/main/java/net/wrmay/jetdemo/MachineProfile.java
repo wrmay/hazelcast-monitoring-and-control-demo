@@ -90,4 +90,16 @@ public class MachineProfile {
 
         return result;
     }
+    public static MachineProfile special(){
+        MachineProfile result = new MachineProfile();
+
+        result.setManufacturer(randomCompany());
+        result.setSerialNum(Names.SPECIAL_SN);
+        result.setWarningTemp(200);
+        result.setCriticalTemp(240);
+        result.setMaxRPM(randomMaxRPM());
+
+        return result;
+    }
+
 }

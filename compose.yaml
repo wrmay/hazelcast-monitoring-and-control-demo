@@ -42,7 +42,7 @@ services:
       HZ_SERVERS: hz
       HZ_CLUSTER_NAME: dev 
       MACHINE_COUNT: 100
-      HOT_MACHINE_COUNT: 10
+      RUNHOT: false
     volumes:
       - ".:/project"
     networks:

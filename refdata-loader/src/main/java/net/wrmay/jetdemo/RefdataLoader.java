@@ -111,6 +111,9 @@ public class RefdataLoader {
             else
                 System.out.println("Loaded " + toLoad + " machine profiles bringing the total to " + machineCount);
 
+            // now add the "special" machine for the demo
+            MachineProfile mp = MachineProfile.special();
+            machineProfileMap.put(mp.getSerialNum(), mp);
         }
 
         hzClient.shutdown();

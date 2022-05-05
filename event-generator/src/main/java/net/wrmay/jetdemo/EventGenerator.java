@@ -30,14 +30,14 @@ public class EventGenerator {
 
     public static final String MACHINE_COUNT_PROP = "MACHINE_COUNT";
 
-    public static final String HOT_MACHINE_COUNT_PROP = "HOT_MACHINE_COUNT";
+    public static final String RUNHOT_PROP = "RUNHOT";
 
     private static String []hzServers;
     private static String hzClusterName;
 
     private static int machineCount;
 
-    private static int hotMachineCount;
+    private static boolean runHot;
 
     private static String getRequiredProp(String propName){
         String prop = System.getenv(propName);
@@ -76,9 +76,12 @@ public class EventGenerator {
             System.exit(1);
         }
 
-        hotMachineCount = getRequiredIntegerProp(HOT_MACHINE_COUNT_PROP);
-        if (hotMachineCount < 1 || hotMachineCount > machineCount){
-            System.err.println("Hot machine count must be greater than 0 and less than machine count");
+        String str = System.getenv(RUNHOT_PROP);
+        if (str == null){
+            runHot = false;
+        } else {
+            str = str.toLowerCase();
+            runHot = str.equals("yes") || str.equals("true");
         }
     }
 
@@ -95,7 +98,7 @@ public class EventGenerator {
         HazelcastInstance hzClient = HazelcastClient.newHazelcastClient(clientConfig);
         try(Closer<HazelcastInstance> hzCloser = new Closer<>(hzClient, HazelcastInstance::shutdown)){
             IMap<String, MachineProfile> machineProfileMap = hzClient.getMap(Names.PROFILE_MAP_NAME);
-            IMap<String, MachineStatus> machineStatusMap = hzClient.getMap(Names.EVENT_MAP_NAME);
+            IMap<String, MachineStatus> machineEventMap = hzClient.getMap(Names.EVENT_MAP_NAME);
 
             int existingEntries = machineProfileMap.size();
 
@@ -109,9 +112,16 @@ public class EventGenerator {
                 existingEntries = machineProfileMap.size();
             }
 
+            // add some sleep to prevent the condition where the loader has not finished initializing the sql mapping
+            try {
+                Thread.sleep(5000);
+            } catch(InterruptedException x){
+                //
+            }
+
             // now we have sufficient profiles to start generating data
             String[] serialNums = new String[machineCount];
-            try(SqlResult result = hzClient.getSql().execute("SELECT serialNum FROM " + Names.PROFILE_MAP_NAME +  " LIMIT ?", machineCount)) {
+            try(SqlResult result = hzClient.getSql().execute("SELECT serialNum FROM " + Names.PROFILE_MAP_NAME +  " WHERE serialNum != ? LIMIT ?", Names.SPECIAL_SN, machineCount)) {
                 int i = 0;
                 for (SqlRow row : result) {
                     serialNums[i++] = row.getObject(0);
@@ -125,10 +135,15 @@ public class EventGenerator {
             Random rand = new Random();
             ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(machineCount / 100, new DaemonThreadFactory());
             try(Closer<ScheduledThreadPoolExecutor> threadPoolExecutorCloser = new Closer<>(executor, ScheduledThreadPoolExecutor::shutdown)){
-                MachineEmulator[] machineEmulators = new MachineEmulator[machineCount];
-                for(int j=0;j< machineCount; ++j){
-                    machineEmulators[j] = new MachineEmulator(machineStatusMap, serialNums[j], j < hotMachineCount);
-                    executor.scheduleAtFixedRate(machineEmulators[j], rand.nextInt(1000), 1000, TimeUnit.MILLISECONDS);
+
+                if (runHot){
+                    executor.scheduleAtFixedRate(new MachineEmulator(machineEventMap,Names.SPECIAL_SN, true),0, 1000, TimeUnit.MILLISECONDS);
+                } else {
+                    MachineEmulator[] machineEmulators = new MachineEmulator[machineCount];
+                    for(int j=0;j< machineCount; ++j){
+                        machineEmulators[j] = new MachineEmulator(machineEventMap, serialNums[j], false);
+                        executor.scheduleAtFixedRate(machineEmulators[j], rand.nextInt(1000), 1000, TimeUnit.MILLISECONDS);
+                    }
                 }
 
                 AtomicBoolean running = new AtomicBoolean(true);

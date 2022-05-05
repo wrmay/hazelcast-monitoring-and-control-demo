@@ -51,7 +51,8 @@ public class TemperatureMonitor5 {
 
         // look up the machine profile for this machine, copy the warning temp onto the event
         // the output is serial number, avg temp, warning temp, critical temp
-        StreamStage<Tuple4<String, Double, Integer, Integer>> temperaturesAndLimits = averageTemps.groupingKey(KeyedWindowResult::getKey).<MachineProfile, Tuple4<String, Double, Integer, Integer>>mapUsingIMap(
+        StreamStage<Tuple4<String, Double, Integer, Integer>> temperaturesAndLimits = averageTemps.groupingKey(KeyedWindowResult::getKey).
+            <MachineProfile, Tuple4<String, Double, Integer, Integer>>mapUsingIMap(
                         Names.PROFILE_MAP_NAME,
                         (window, machineProfile) -> Tuple4.tuple4(window.getKey(), window.getValue(), machineProfile.getWarningTemp(), machineProfile.getCriticalTemp()))
                 .setName("Lookup Temp Limits");
