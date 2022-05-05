@@ -17,13 +17,17 @@ public class TemperatureMonitor5 {
     private static String categorizeTemp(double temp, int warningLimit, int criticalLimit){
         String result;
         if (temp > (double) criticalLimit)
-            result = "RED";
+            result = "red";
         else if (temp > (double) warningLimit)
-            result = "ORANGE";
+            result = "orange";
         else
-            result = "GREEN";
+            result = "green";
 
         return result;
+    }
+
+    private static String formatStatusMessage(Tuple5<String, Double,Integer,Integer,String> tuple){
+        return "" + tuple.f1() + "," + tuple.f2() + "," + tuple.f3() + "," +  tuple.f4();
     }
 
     public static void main(String []args){
@@ -61,8 +65,8 @@ public class TemperatureMonitor5 {
         StreamStage<Map.Entry<String, String>> statusChanges = labeledTemperatures.groupingKey(Tuple5::f0).<String, Map.Entry<String, String>>mapUsingIMap(
                 Names.STATUS_MAP_NAME,
                 (tuple, currStatus) -> {
-                    if (currStatus == null || !currStatus.equals(tuple.f4()))
-                        return Tuple2.tuple2(tuple.f0(), tuple.f4());
+                    if (currStatus == null || !currStatus.equals(formatStatusMessage(tuple)))
+                        return Tuple2.tuple2(tuple.f0(), formatStatusMessage(tuple));
                     else
                         return null;
                 }).setName("filter for changes");

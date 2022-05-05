@@ -16,7 +16,7 @@ public class MachineEmulator implements  Runnable{
         this.t = 0;
 
         if (isHot)
-            tempSignalGenerator = new SignalGenerator(95f,1f,1f);
+            tempSignalGenerator = new SignalGenerator(95f,.5f,2f);
         else
             tempSignalGenerator = new SignalGenerator(95f, 0f, 1f);
     }
