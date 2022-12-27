@@ -10,12 +10,12 @@ import java.util.Map;
 
 /**
  * Expects the following environment variables
- *
+ * <p>
  * HZ_SERVERS  A comma-separated list of Hazelcast servers in host:port format.  Port may be omitted.
  *             Any whitespace around the commas will be removed.  Required.
- *
+ * <p>
  * HZ_CLUSTER_NAME  The name of the Hazelcast cluster to connect.  Required.
- *
+ * <p>
  * MACHINE_COUNT The number of machines to load.
  */
 public class RefdataLoader {
@@ -29,12 +29,12 @@ public class RefdataLoader {
 
     private static int machineCount;
 
-    private static final String CREATE_MAPPING_SQL = "CREATE OR REPLACE MAPPING \"" + Names.PROFILE_MAP_NAME + "\" (" +
-            "\"criticalTemp\" INTEGER EXTERNAL NAME \"this.criticalTemp\"," +
-            "\"manufacturer\" VARCHAR EXTERNAL NAME \"this.manufacturer\"," +
-            "\"maxRPM\" INTEGER EXTERNAL NAME \"this.maxRPM\"," +
-            "\"serialNum\" VARCHAR EXTERNAL NAME \"this.serialNum\"," +
-            "\"warningTemp\" INTEGER EXTERNAL NAME \"this.warningTemp\") " +
+    private static final String CREATE_MAPPING_SQL = "CREATE OR REPLACE MAPPING " + Names.PROFILE_MAP_NAME + " (" +
+            "criticalTemp INTEGER, " +
+            "manufacturer VARCHAR, " +
+            "maxRPM INTEGER, " +
+            "serialNum VARCHAR, " +
+            "warningTemp INTEGER) " +
             "TYPE IMap OPTIONS (" +
             "'keyFormat' = 'java'," +
             "'keyJavaClass' = 'java.lang.String'," +
@@ -77,9 +77,6 @@ public class RefdataLoader {
         ClientConfig clientConfig = new ClientConfig();
         clientConfig.setClusterName(hzClusterName);
         clientConfig.getNetworkConfig().addAddress(hzServers);
-
-        // enable compact serialization
-        clientConfig.getSerializationConfig().getCompactSerializationConfig().setEnabled(true);
 
         HazelcastInstance hzClient = HazelcastClient.newHazelcastClient(clientConfig);
 

@@ -2,6 +2,8 @@ package net.wrmay.jetdemo;
 
 import java.util.Random;
 
+//TODO for performance reasons, implement CompactSerializers for all of the classes in this package
+
 public class MachineProfile {
     private String serialNum;
     private String manufacturer;

@@ -92,9 +92,6 @@ public class EventGenerator {
         clientConfig.setClusterName(hzClusterName);
         clientConfig.getNetworkConfig().addAddress(hzServers);
 
-        // enable compact serialization
-        clientConfig.getSerializationConfig().getCompactSerializationConfig().setEnabled(true);
-
         HazelcastInstance hzClient = HazelcastClient.newHazelcastClient(clientConfig);
         try(Closer<HazelcastInstance> hzCloser = new Closer<>(hzClient, HazelcastInstance::shutdown)){
             IMap<String, MachineProfile> machineProfileMap = hzClient.getMap(Names.PROFILE_MAP_NAME);
