@@ -36,7 +36,7 @@ services:
     environment:
       HZ_SERVERS: hz
       HZ_CLUSTER_NAME: dev 
-      MACHINE_COUNT: 3
+      MACHINE_COUNT: 5
     volumes:
       - ".:/project"
     networks:
@@ -48,7 +48,7 @@ services:
     environment:
       HZ_SERVERS: hz
       HZ_CLUSTER_NAME: dev 
-      MACHINE_COUNT: 3
+      MACHINE_COUNT: 5
       RUNHOT: false
     volumes:
       - ".:/project"

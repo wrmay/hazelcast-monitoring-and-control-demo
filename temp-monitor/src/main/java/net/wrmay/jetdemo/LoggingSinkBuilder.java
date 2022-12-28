@@ -30,6 +30,7 @@ public class LoggingSinkBuilder {
         });
 
         SinkBuilder<Printer<T>, T> sb2 = sb.<T>receiveFn(Printer::print).destroyFn(Printer::close);
+        sb2.preferredLocalParallelism(1);
 
         return sb2.build();
     }
@@ -82,7 +83,7 @@ public class LoggingSinkBuilder {
             this.printWriter.acquire();
         }
 
-        public void print(T thing){
+        public   void print(T thing){
             printWriter.get().println(toStringFn.apply(thing));
         }
 
