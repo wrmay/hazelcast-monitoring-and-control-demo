@@ -9,7 +9,18 @@ import java.util.Map;
 
 public class TemperatureMonitor1 {
     public static void main(String []args){
+        if (args.length != 1){
+            System.err.println("Please provide the log output directory as the first argument");
+            System.exit(1);
+        }
+
+        String logDir = args[0];
+
         Pipeline pipeline = Pipeline.create();
+
+        Sink<Map.Entry<String,MachineStatus>> sink = LoggingSinkBuilder.buildSink("log events",
+                logDir,
+                entry ->  "EVENT (" + entry.getKey() + ")");
 
         // create the map journal source
         StreamSource<Map.Entry<String, MachineStatus>> machineStatusEventSource
@@ -21,7 +32,7 @@ public class TemperatureMonitor1 {
                         .setName("machine status events");
 
         // log the events
-        statusEvents.writeTo(Sinks.logger());
+        statusEvents.writeTo(sink);
 
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("Temperature Monitor");
