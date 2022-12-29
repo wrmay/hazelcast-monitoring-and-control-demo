@@ -45,10 +45,12 @@ public class TemperatureMonitor5 {
                         .withTimestamps(event -> event.getValue().getTimestamp(), 2000)
                         .setName("machine status events");
 
-        Sink<Map.Entry<String, MachineStatus>> readSink = LoggingSinkBuilder.buildSink("read logger",
-                logDir,
-                entry -> "READ " + entry.getKey() + " " + entry.getValue());
-        statusEvents.writeTo(readSink);
+        statusEvents = LoggingService.log(statusEvents, logDir, entry -> "READ " + entry.getKey() + " " + entry.getValue());
+
+//        Sink<Map.Entry<String, MachineStatus>> readSink = LoggingSinkBuilder.buildSink("read logger",
+//                logDir,
+//                entry -> "READ " + entry.getKey() + " " + entry.getValue());
+//        statusEvents.writeTo(readSink);
 
 
         // split the events by serial number, create a tumbling window to calculate avg. temp over 10s
@@ -58,10 +60,12 @@ public class TemperatureMonitor5 {
                 .window(WindowDefinition.tumbling(10000))
                 .aggregate(AggregateOperations.averagingLong(event -> event.getValue().getBitTemp())).setName("Average Temp");
 
-        Sink<KeyedWindowResult<String, Double>> avgSink = LoggingSinkBuilder.buildSink("avg logger",
-                logDir,
-                window -> "AVG " + window.getKey() + " " + window);
-        averageTemps.writeTo(avgSink);
+        averageTemps = LoggingService.log(averageTemps, logDir, window -> "AVG " + window.getKey() + " " + window);
+
+//        Sink<KeyedWindowResult<String, Double>> avgSink = LoggingSinkBuilder.buildSink("avg logger",
+//                logDir,
+//                window -> "AVG " + window.getKey() + " " + window);
+//        averageTemps.writeTo(avgSink);
 
 
         // look up the machine profile for this machine, copy the warning temp onto the event
@@ -72,30 +76,35 @@ public class TemperatureMonitor5 {
                         (window, machineProfile) -> Tuple4.tuple4(window.getKey(), window.getValue(), machineProfile.getWarningTemp(), machineProfile.getCriticalTemp()))
                 .setName("Lookup Temp Limits");
 
-        Sink<Tuple4<String, Double, Integer, Integer>> lookupSink = LoggingSinkBuilder.buildSink("lookup logger",
-                logDir,
-                tuple -> "LOOKUP " + tuple.f0() + " AVG: " + tuple.f1() + " WARN: " + tuple.f2() + " CRIT: " + tuple.f3());
-        temperaturesAndLimits.writeTo(lookupSink);
+        temperaturesAndLimits = LoggingService.log(temperaturesAndLimits, logDir, tuple -> "LOOKUP " + tuple.f0() + " AVG: " + tuple.f1() + " WARN: " + tuple.f2() + " CRIT: " + tuple.f3());
+
+//        Sink<Tuple4<String, Double, Integer, Integer>> lookupSink = LoggingSinkBuilder.buildSink("lookup logger",
+//                logDir,
+//                tuple -> "LOOKUP " + tuple.f0() + " AVG: " + tuple.f1() + " WARN: " + tuple.f2() + " CRIT: " + tuple.f3());
+//        temperaturesAndLimits.writeTo(lookupSink);
 
         // categorize as GREEN / ORANGE / RED, add category to the end of the existing tuple
         StreamStage<Tuple5<String, Double, Integer, Integer, String>> labeledTemperatures = temperaturesAndLimits.map(tuple -> Tuple5.tuple5(tuple.f0(), tuple.f1(), tuple.f2(), tuple.f3(), categorizeTemp(tuple.f1(), tuple.f2(), tuple.f3())))
                 .setName("Apply Label");
 
-        Sink<Tuple5<String, Double, Integer, Integer, String>> categorySink = LoggingSinkBuilder.buildSink("category logger",
-                logDir,
-                tuple -> "CATEGORIZE " + tuple.f0() + " " + tuple.f4());
-        labeledTemperatures.writeTo(categorySink);
+        labeledTemperatures = LoggingService.log(labeledTemperatures, logDir,tuple -> "CATEGORIZE " + tuple.f0() + " " + tuple.f4());
+
+//        Sink<Tuple5<String, Double, Integer, Integer, String>> categorySink = LoggingSinkBuilder.buildSink("category logger",
+//                logDir,
+//                tuple -> "CATEGORIZE " + tuple.f0() + " " + tuple.f4());
+//        labeledTemperatures.writeTo(categorySink);
 
         StreamStage<Tuple2<String, String>> statusChanges =
                 labeledTemperatures.groupingKey(Tuple5::f0)
                         .filterStateful(Status::new, (status, item) -> status.checkAndSet(item.f4()))
                         .map( item -> Tuple2.tuple2(item.f0(), item.f4()));
 
+        statusChanges = LoggingService.log(statusChanges, logDir,entry -> "STATUS     " + entry.getKey() + " " + entry.getValue() );
 
-        Sink<Tuple2<String, String>> statusChangeSink = LoggingSinkBuilder.buildSink("status change logger",
-                logDir,
-                entry -> "STATUS     " + entry.getKey() + " " + entry.getValue());
-        statusChanges.writeTo(statusChangeSink);
+//        Sink<Tuple2<String, String>> statusChangeSink = LoggingSinkBuilder.buildSink("status change logger",
+//                logDir,
+//                entry -> "STATUS     " + entry.getKey() + " " + entry.getValue());
+//        statusChanges.writeTo(statusChangeSink);
 
         // sink them to a map
         statusChanges.writeTo(Sinks.map(Names.STATUS_MAP_NAME));
