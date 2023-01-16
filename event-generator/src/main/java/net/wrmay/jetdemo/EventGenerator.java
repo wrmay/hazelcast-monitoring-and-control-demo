@@ -1,12 +1,16 @@
 package net.wrmay.jetdemo;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hazelcast.client.HazelcastClient;
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.map.IMap;
 import com.hazelcast.sql.SqlResult;
 import com.hazelcast.sql.SqlRow;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
 
+import java.io.IOException;
 import java.util.Random;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
@@ -14,15 +18,19 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
+import static net.wrmay.jetdemo.Names.SPECIAL_SN;
+
 /**
  * Expects the following environment variables
- *
+ * <p>
  * HZ_SERVERS  A comma-separated list of Hazelcast servers in host:port format.  Port may be omitted.
- *             Any whitespace around the commas will be removed.  Required.
- *
+ * Any whitespace around the commas will be removed.  Required.
+ * <p>
  * HZ_CLUSTER_NAME  The name of the Hazelcast cluster to connect.  Required.
- *
+ * <p>
  * MACHINE_COUNT The number of machines to emulate.
+ * <p>
+ * TARGET_URL   The URL to which events will be delivered
  */
 public class EventGenerator {
     public static final String HZ_SERVERS_PROP = "HZ_SERVERS";
@@ -30,18 +38,26 @@ public class EventGenerator {
 
     public static final String MACHINE_COUNT_PROP = "MACHINE_COUNT";
 
-    public static final String RUNHOT_PROP = "RUNHOT";
+    public static final String RUN_HOT_PROP = "RUNHOT";
 
-    private static String []hzServers;
+    public static final String TARGET_URL_PROP = "TARGET_URL";
+
+    private static String[] hzServers;
     private static String hzClusterName;
 
     private static int machineCount;
 
     private static boolean runHot;
 
-    private static String getRequiredProp(String propName){
+    private static String targetURL;
+
+    private static String[] serialNums;
+
+    private static ObjectMapper objectMapper;
+
+    private static String getRequiredProp(String propName) {
         String prop = System.getenv(propName);
-        if (prop == null){
+        if (prop == null) {
             System.err.println("The " + propName + " property must be set");
             System.exit(1);
         }
@@ -49,61 +65,72 @@ public class EventGenerator {
     }
 
     // guarantees to return a result or call System.exit
-    private static int getRequiredIntegerProp(String propName){
+    private static int getRequiredIntegerProp(String propName) {
         String temp = getRequiredProp(propName);
         int result = 0;
         try {
             result = Integer.parseInt(temp);
-        } catch(NumberFormatException nfx){
+        } catch (NumberFormatException nfx) {
             System.err.println("Could not parse " + temp + " as an integer");
             System.exit(1);
         }
 
-        return  result;
+        return result;
     }
 
-    private static void configure(){
+    private static void configure() {
         String hzServersProp = getRequiredProp(HZ_SERVERS_PROP);
         hzServers = hzServersProp.split(",");
-        for(int i=0; i < hzServers.length; ++i) hzServers[i] = hzServers[i].trim();
+        for (int i = 0; i < hzServers.length; ++i) hzServers[i] = hzServers[i].trim();
 
         hzClusterName = getRequiredProp(HZ_CLUSTER_NAME_PROP);
 
         machineCount = getRequiredIntegerProp(MACHINE_COUNT_PROP);
 
-        if (machineCount < 1 || machineCount > 1000000){
+        if (machineCount < 1 || machineCount > 1000000) {
             System.err.println("Machine count must be between 1 and 1,000,000 inclusive");
             System.exit(1);
         }
 
-        String str = System.getenv(RUNHOT_PROP);
-        if (str == null){
+        String str = System.getenv(RUN_HOT_PROP);
+        if (str == null) {
             runHot = false;
         } else {
             str = str.toLowerCase();
             runHot = str.equals("yes") || str.equals("true");
         }
+
+        targetURL = getRequiredProp(TARGET_URL_PROP).toLowerCase();
+        if (!targetURL.startsWith("http://") && !targetURL.startsWith("https://")) {
+            System.err.println("Target URL must start with \"http://\" or \"https://\"");
+            System.exit(1);
+        }
+
+        objectMapper = new ObjectMapper();
     }
 
-    public static void main(String []args){
-        configure();
 
+    /**
+     * This routine connect to Hazelcast as a client, waits for there to be machineCount entries in
+     * the machine profile map, then selects that many serial numbers into the serialNums static
+     * array.
+     */
+    private static void retrieveSerialNumbersFromHz(){
         ClientConfig clientConfig = new ClientConfig();
         clientConfig.setClusterName(hzClusterName);
         clientConfig.getNetworkConfig().addAddress(hzServers);
 
         HazelcastInstance hzClient = HazelcastClient.newHazelcastClient(clientConfig);
-        try(Closer<HazelcastInstance> hzCloser = new Closer<>(hzClient, HazelcastInstance::shutdown)){
+        try (Closer<HazelcastInstance> hzCloser = new Closer<>(hzClient, HazelcastInstance::shutdown)) {
             IMap<String, MachineProfile> machineProfileMap = hzClient.getMap(Names.PROFILE_MAP_NAME);
-            IMap<String, MachineStatus> machineEventMap = hzClient.getMap(Names.EVENT_MAP_NAME);
 
             int existingEntries = machineProfileMap.size();
 
-            while (existingEntries < machineCount){
+            while (existingEntries < machineCount) {
                 System.out.println("waiting for at least " + machineCount + " machine profiles to be loaded");
                 try {
                     Thread.sleep(4000);
-                } catch(InterruptedException x){
+                } catch (InterruptedException x) {
                     // ?
                 }
                 existingEntries = machineProfileMap.size();
@@ -112,13 +139,13 @@ public class EventGenerator {
             // add some sleep to prevent the condition where the loader has not finished initializing the sql mapping
             try {
                 Thread.sleep(5000);
-            } catch(InterruptedException x){
+            } catch (InterruptedException x) {
                 //
             }
 
             // now we have sufficient profiles to start generating data
-            String[] serialNums = new String[machineCount];
-            try(SqlResult result = hzClient.getSql().execute("SELECT serialNum FROM " + Names.PROFILE_MAP_NAME +  " WHERE serialNum != ? LIMIT ?", Names.SPECIAL_SN, machineCount)) {
+            serialNums = new String[machineCount];
+            try (SqlResult result = hzClient.getSql().execute("SELECT serialNum FROM " + Names.PROFILE_MAP_NAME + " WHERE serialNum != ? LIMIT ?", SPECIAL_SN, machineCount)) {
                 int i = 0;
                 for (SqlRow row : result) {
                     serialNums[i++] = row.getObject(0);
@@ -128,17 +155,26 @@ public class EventGenerator {
                     System.exit(1);
                 }
             }
+        } // close the Hazelcast instance
+    }
+    public static void main(String[] args) {
+        configure();
 
-            Random rand = new Random();
+
+        retrieveSerialNumbersFromHz();
+
+        Random rand = new Random();
+
+        try(CloseableHttpClient httpClient = HttpClients.createDefault()) {
             ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(machineCount / 100, new DaemonThreadFactory());
-            try(Closer<ScheduledThreadPoolExecutor> threadPoolExecutorCloser = new Closer<>(executor, ScheduledThreadPoolExecutor::shutdown)){
+            try (Closer<ScheduledThreadPoolExecutor> threadPoolExecutorCloser = new Closer<>(executor, ScheduledThreadPoolExecutor::shutdown)) {
 
-                if (runHot){
-                    executor.scheduleAtFixedRate(new MachineEmulator(machineEventMap,Names.SPECIAL_SN, true),0, 1000, TimeUnit.MILLISECONDS);
+                if (runHot) {
+                    executor.scheduleAtFixedRate(new MachineEmulator(httpClient, targetURL, SPECIAL_SN, true, objectMapper), 0, 1000, TimeUnit.MILLISECONDS);
                 } else {
                     MachineEmulator[] machineEmulators = new MachineEmulator[machineCount];
-                    for(int j=0;j< machineCount; ++j){
-                        machineEmulators[j] = new MachineEmulator(machineEventMap, serialNums[j], false);
+                    for (int j = 0; j < machineCount; ++j) {
+                        machineEmulators[j] = new MachineEmulator(httpClient, targetURL, serialNums[j], false, objectMapper);
                         executor.scheduleAtFixedRate(machineEmulators[j], rand.nextInt(1000), 1000, TimeUnit.MILLISECONDS);
                     }
                 }
@@ -147,17 +183,20 @@ public class EventGenerator {
 
                 Runtime.getRuntime().addShutdownHook(new Thread(() -> running.set(false)));
 
-                while(running.get()){
+                while (running.get()) {
                     try {
                         Thread.sleep(2000);
-                    } catch(InterruptedException ix){
+                    } catch (InterruptedException ix) {
                         break;
                     }
                 }
                 System.out.println("Shutting down");
             } // close thread pool
-        }  // close Hazelcast instance
-
+        } catch(IOException iox){  // close the http connection
+            System.err.println("There was a problem with the http connection to: " + targetURL);
+            iox.printStackTrace(System.err);
+            System.exit(1);
+        }
     }
 
     private static class Closer<T> implements AutoCloseable {
@@ -165,13 +204,13 @@ public class EventGenerator {
         private final T client;
         private final Consumer<T> closeFn;
 
-        public Closer(T hc, Consumer<T> closeFn){
+        public Closer(T hc, Consumer<T> closeFn) {
             this.client = hc;
             this.closeFn = closeFn;
         }
 
         @Override
-        public void close()  {
+        public void close() {
             closeFn.accept(client);
         }
     }

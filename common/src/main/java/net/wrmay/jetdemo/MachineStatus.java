@@ -1,5 +1,8 @@
 package net.wrmay.jetdemo;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
+
 public class MachineStatus {
     private String serialNum;
 
@@ -78,4 +81,5 @@ public class MachineStatus {
                 ", bitPositionZ=" + bitPositionZ +
                 '}';
     }
+
 }

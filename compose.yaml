@@ -50,6 +50,7 @@ services:
       HZ_CLUSTER_NAME: dev 
       MACHINE_COUNT: 5
       RUNHOT: false
+      TARGET_URL: http://hz:8080/
     volumes:
       - ".:/project"
     networks:
