@@ -6,6 +6,9 @@ import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.map.IMap;
 import com.hazelcast.sql.SqlResult;
 import com.hazelcast.sql.SqlRow;
+import org.apache.pulsar.client.api.Producer;
+import org.apache.pulsar.client.api.PulsarClient;
+import org.apache.pulsar.client.api.PulsarClientException;
 
 import java.util.Random;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -17,24 +20,25 @@ import java.util.function.Consumer;
 /**
  * Expects the following environment variables
  *
- * HZ_SERVERS  A comma-separated list of Hazelcast servers in host:port format.  Port may be omitted.
- *             Any whitespace around the commas will be removed.  Required.
+ * PULSAR_URL    The URL of a Pulsar broker
  *
- * HZ_CLUSTER_NAME  The name of the Hazelcast cluster to connect.  Required.
+ * PULSAR_TOPIC  The topic to which events will be published.
  *
  * MACHINE_COUNT The number of machines to emulate.
  */
 public class EventGenerator {
-    public static final String HZ_SERVERS_PROP = "HZ_SERVERS";
-    public static final String HZ_CLUSTER_NAME_PROP = "HZ_CLUSTER_NAME";
 
+    public static final String PULSAR_URL_PROP = "PULSAR_URL";
+
+    public static final String PULSAR_TOPIC_PROP = "PULSAR_TOPIC";
     public static final String MACHINE_COUNT_PROP = "MACHINE_COUNT";
 
     public static final String RUNHOT_PROP = "RUNHOT";
 
-    private static String []hzServers;
-    private static String hzClusterName;
 
+    private static String pulsarURL;
+
+    private static String pulsarTopic;
     private static int machineCount;
 
     private static boolean runHot;
@@ -63,11 +67,8 @@ public class EventGenerator {
     }
 
     private static void configure(){
-        String hzServersProp = getRequiredProp(HZ_SERVERS_PROP);
-        hzServers = hzServersProp.split(",");
-        for(int i=0; i < hzServers.length; ++i) hzServers[i] = hzServers[i].trim();
-
-        hzClusterName = getRequiredProp(HZ_CLUSTER_NAME_PROP);
+        pulsarURL = getRequiredProp(PULSAR_URL_PROP);
+        pulsarTopic = getRequiredProp(PULSAR_TOPIC_PROP);
 
         machineCount = getRequiredIntegerProp(MACHINE_COUNT_PROP);
 
@@ -88,13 +89,11 @@ public class EventGenerator {
     public static void main(String []args){
         configure();
 
-        ClientConfig clientConfig = new ClientConfig();
-        clientConfig.setClusterName(hzClusterName);
-        clientConfig.getNetworkConfig().addAddress(hzServers);
+        try(PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarURL).build()){
+            try(Producer<byte[]> producer = pulsarClient.newProducer().blockIfQueueFull(true).topic(pulsarTopic).create()){
 
-        HazelcastInstance hzClient = HazelcastClient.newHazelcastClient(clientConfig);
-        try(Closer<HazelcastInstance> hzCloser = new Closer<>(hzClient, HazelcastInstance::shutdown)){
-            IMap<String, MachineProfile> machineProfileMap = hzClient.getMap(Names.PROFILE_MAP_NAME);
+            }
+
             IMap<String, MachineStatus> machineEventMap = hzClient.getMap(Names.EVENT_MAP_NAME);
 
             int existingEntries = machineProfileMap.size();
@@ -157,6 +156,9 @@ public class EventGenerator {
                 System.out.println("Shutting down");
             } // close thread pool
         }  // close Hazelcast instance
+        catch (PulsarClientException e) {
+            throw new RuntimeException(e);
+        }
 
     }
 
