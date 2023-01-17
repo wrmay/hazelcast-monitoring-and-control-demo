@@ -22,5 +22,6 @@
         <module>refdata-loader</module>
         <module>event-generator</module>
         <module>temp-monitor</module>
+        <module>hazelcast-jet-contrib-http</module>
     </modules>
 </project>
