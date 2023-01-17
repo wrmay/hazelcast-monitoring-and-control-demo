@@ -56,7 +56,8 @@ public class MachineProfile {
     private static final Random random = new Random();
     private static final String[] companies = new String [] {"Breton","Fabplus", "Laguna Tools", "Snapmaker","Machinecraft", "Multicam", "OZ Machine"};
 
-    private static final String digits = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    private static final String letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    private static final String digits = "0123456789";
 
     private static final int [] rpmLimits = new int[] {8000,10000,12000,20000,30000,40000};
 
@@ -64,8 +65,8 @@ public class MachineProfile {
 
     private static String randomSN(){
         char [] result = new char[6];
-        for(int i=0;i< result.length; ++i) result[i] = digits.charAt(random.nextInt(digits.length()));
-
+        for(int i=0; i < 3; ++i) result[i] = letters.charAt(random.nextInt(letters.length()));
+        for(int j=3; j < result.length; ++j) result[j] = digits.charAt(random.nextInt(digits.length()));
         return new String(result);
     }
 

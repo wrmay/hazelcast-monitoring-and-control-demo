@@ -29,7 +29,7 @@ public class RefdataLoader {
 
     private static int machineCount;
 
-    private static final String CREATE_MAPPING_SQL = "CREATE OR REPLACE MAPPING " + Names.PROFILE_MAP_NAME + " (" +
+    private static final String PROFILE_MAPPING_SQL = "CREATE OR REPLACE MAPPING " + Names.PROFILE_MAP_NAME + " (" +
             "criticalTemp INTEGER, " +
             "manufacturer VARCHAR, " +
             "maxRPM INTEGER, " +
@@ -40,6 +40,10 @@ public class RefdataLoader {
             "'keyJavaClass' = 'java.lang.String'," +
             "'valueFormat' = 'compact'," +
             "'valueCompactTypeName' = 'net.wrmay.jetdemo.MachineProfile')";
+    private static final String STATUS_MAPPING_SQL = "CREATE OR REPLACE MAPPING " + Names.STATUS_MAP_NAME +
+            " TYPE IMap OPTIONS (" +
+            "'keyFormat' = 'varchar'," +
+            "'valueFormat' = 'varchar')";
 
     private static String getRequiredProp(String propName){
         String prop = System.getenv(propName);
@@ -80,7 +84,8 @@ public class RefdataLoader {
 
         HazelcastInstance hzClient = HazelcastClient.newHazelcastClient(clientConfig);
 
-        hzClient.getSql().execute(CREATE_MAPPING_SQL);
+        hzClient.getSql().execute(PROFILE_MAPPING_SQL);
+        hzClient.getSql().execute(STATUS_MAPPING_SQL);
 
         Map<String, MachineProfile> batch = new HashMap<>();
         IMap<String, MachineProfile> machineProfileMap = hzClient.getMap(Names.PROFILE_MAP_NAME);
